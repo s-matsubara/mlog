@@ -41,13 +41,7 @@ type Log struct {
 }
 
 func New(w io.Writer, opts *HandlerOptions) *Handler {
-	o := &HandlerOptions{
-		Level:         slog.LevelInfo,
-		Format:        "{{.Timestamp}} {{.Level}} {{.Message}}",
-		TimeFormat:    time.DateTime,
-		EnableColor:   false,
-		AttrFormatter: NewBasicFormatter(),
-	}
+	o := getDefaultHandlerOptions()
 
 	if opts.Level != nil {
 		o.Level = opts.Level
@@ -72,11 +66,22 @@ func New(w io.Writer, opts *HandlerOptions) *Handler {
 	}
 }
 
+func getDefaultHandlerOptions() *HandlerOptions {
+	return &HandlerOptions{
+		Level:         slog.LevelInfo,
+		Format:        "{{.Timestamp}} {{.Level}} {{.Message}}",
+		TimeFormat:    time.DateTime,
+		EnableColor:   false,
+		AttrFormatter: NewBasicFormatter(),
+	}
+}
+
 func (h *Handler) Enabled(_ context.Context, level slog.Level) bool {
 	return h.opts.Level.Level() <= level
 }
 
 func (h *Handler) Handle(_ context.Context, record slog.Record) error {
+	h = h.clone()
 	buf := &bytes.Buffer{}
 
 	log := &Log{
@@ -115,11 +120,13 @@ func (h *Handler) Handle(_ context.Context, record slog.Record) error {
 }
 
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	h = h.clone()
 	h.attrs = attrs
 	return h
 }
 
 func (h *Handler) WithGroup(name string) slog.Handler {
+	h = h.clone()
 	h.group = name
 	return h
 }
@@ -152,6 +159,16 @@ func (h *Handler) mergeWithGroup() {
 		Value: slog.AnyValue(h.attrs),
 	}
 	h.attrs = append(attrs, a)
+}
+
+func (h *Handler) clone() *Handler {
+	return &Handler{
+		opts:  h.opts,
+		mu:    h.mu,
+		w:     h.w,
+		attrs: h.attrs,
+		group: h.group,
+	}
 }
 
 func (h *Handler) execute(buf *bytes.Buffer) error {

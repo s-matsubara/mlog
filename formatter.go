@@ -10,14 +10,21 @@ type AttrFormatter interface {
 	Format(buf *bytes.Buffer, attrs []slog.Attr)
 }
 
-type basicFormatter struct{}
+type oneLineFormatter struct{}
 
 func NewBasicFormatter() AttrFormatter {
-	return basicFormatter{}
+	return oneLineFormatter{}
 }
 
-func (f basicFormatter) Format(buf *bytes.Buffer, attrs []slog.Attr) {
+func (f oneLineFormatter) Format(buf *bytes.Buffer, attrs []slog.Attr) {
+	if len(attrs) == 0 {
+		buf.WriteByte('\n')
+		return
+	}
+
 	var b []byte
+
+	b = append(b, ' ')
 
 	for i, attr := range attrs {
 		if attr.Equal(slog.Attr{}) {
@@ -29,7 +36,29 @@ func (f basicFormatter) Format(buf *bytes.Buffer, attrs []slog.Attr) {
 		}
 	}
 
-	buf.WriteByte(' ')
+	b = append(b, '\n')
+
+	buf.Write(b)
+}
+
+type newLineFormatter struct{}
+
+func NewNewLineFormatter() AttrFormatter {
+	return newLineFormatter{}
+}
+
+func (f newLineFormatter) Format(buf *bytes.Buffer, attrs []slog.Attr) {
+	var b []byte
+	b = append(b, '\n')
+
+	for _, attr := range attrs {
+		if attr.Equal(slog.Attr{}) {
+			continue
+		}
+		b = append(b, []byte(attr.String())...)
+		b = append(b, '\n')
+	}
+
 	buf.Write(b)
 }
 
@@ -41,6 +70,10 @@ func NewYamlFormatter() AttrFormatter {
 
 func (f yamlFormatter) Format(buf *bytes.Buffer, attrs []slog.Attr) {
 	buf.WriteByte('\n')
+
+	if len(attrs) == 0 {
+		return
+	}
 
 	f.convert(attrs)
 	bs, _ := yaml.Marshal(f.convert(attrs))

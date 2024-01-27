@@ -3,7 +3,6 @@ package mlog
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -52,11 +51,11 @@ func TestInfo(t *testing.T) {
 func TestFile(t *testing.T) {
 	got := &bytes.Buffer{}
 	handler := New(got, &HandlerOptions{
-		Format: "{{.Level}} {{.Message}} {{.File}} {{.FileName}} {{.Line}} {{.Function}}",
+		Format: "{{.Level}} {{.Message}} {{.FileName}} {{.Function}}",
 	})
 	logger := slog.New(handler)
 	logger.Info("info")
-	want := "INFO info\n"
+	want := "INFO info handler_test.go github.com/s-matsubara/mlog.TestFile\n"
 	if got.String() != want {
 		t.Errorf("%v, want %v", got, want)
 	}
@@ -69,8 +68,10 @@ func TestAttrs(t *testing.T) {
 	})
 	logger := slog.New(handler)
 	logger.Info("info", "aaa", "bbb")
-
-	fmt.Println(got)
+	want := "INFO info aaa=bbb\n"
+	if got.String() != want {
+		t.Errorf("%v, want %v", got, want)
+	}
 }
 
 func TestWithAttrs(t *testing.T) {
@@ -80,8 +81,10 @@ func TestWithAttrs(t *testing.T) {
 	})
 	logger := slog.New(handler)
 	logger.With("aaa", "bbb").Info("info")
-
-	fmt.Println(got)
+	want := "INFO info aaa=bbb\n"
+	if got.String() != want {
+		t.Errorf("%v, want %v", got, want)
+	}
 }
 
 func TestGroup(t *testing.T) {
@@ -91,44 +94,91 @@ func TestGroup(t *testing.T) {
 	})
 	logger := slog.New(handler)
 	logger.Info("info", slog.Group("group", slog.Any("aaa", "bbb")))
-
-	fmt.Println(got)
+	want := "INFO info group=[aaa=bbb]\n"
+	if got.String() != want {
+		t.Errorf("%v, want %v", got, want)
+	}
 }
 
 func TestWithGroup(t *testing.T) {
 	got := &bytes.Buffer{}
 	handler := New(got, &HandlerOptions{
-		Format:      "{{.Level}} {{.Message}}",
-		EnableColor: true,
+		Format: "{{.Level}} {{.Message}}",
 	})
 	logger := slog.New(handler)
 	logger.WithGroup("group").Info("info", slog.Any("aaa", "bbb"))
-
-	fmt.Println(got)
+	want := "INFO info group=[aaa=bbb]\n"
+	if got.String() != want {
+		t.Errorf("%v, want %v", got, want)
+	}
 }
 
-func TestBasicFormatter(t *testing.T) {
-	got := &bytes.Buffer{}
-	handler := New(got, &HandlerOptions{
+func TestColorFormatter(t *testing.T) {
+	handler := New(os.Stdout, &HandlerOptions{
 		Format:        "{{.Level}} {{.Message}}",
 		EnableColor:   true,
 		AttrFormatter: NewBasicFormatter(),
 	})
 	logger := slog.New(handler)
-	logger.WithGroup("group").Info("info", slog.Any("aaa", "bbb"))
+	logger.Debug("debug")
+	logger.Info("info")
+	logger.Warn("warn")
+	logger.Error("error")
+}
 
-	fmt.Println(got)
+func TestBasicFormatter(t *testing.T) {
+	handler := New(os.Stdout, &HandlerOptions{
+		Format:        "{{.Level}} {{.Message}}",
+		AttrFormatter: NewBasicFormatter(),
+	})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slogLogger()
+}
+
+func TestNewLineFormatter(t *testing.T) {
+	handler := New(os.Stdout, &HandlerOptions{
+		Format:        "{{.Level}} {{.Message}}",
+		AttrFormatter: NewNewLineFormatter(),
+	})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	slogLogger()
 }
 
 func TestYamlFormatter(t *testing.T) {
-	got := &bytes.Buffer{}
-	handler := New(got, &HandlerOptions{
+	handler := New(os.Stdout, &HandlerOptions{
 		Format:        "{{.Level}} {{.Message}}",
-		EnableColor:   true,
 		AttrFormatter: NewYamlFormatter(),
 	})
 	logger := slog.New(handler)
-	logger.WithGroup("group").Error("error", slog.Any("aaa", "bbb"))
+	slog.SetDefault(logger)
+	slogLogger()
+}
 
-	fmt.Println(got)
+func slogLogger() {
+	slog.Info(
+		"logger",
+		slog.Any("aaa", "bbb"),
+		slog.Any("ccc", "ddd"),
+	)
+	slog.Info(
+		"logger",
+		slog.Any("aaa", "bbb"),
+		slog.Any("ccc", "ddd"),
+	)
+	slog.Info(
+		"logger",
+		slog.Group("group",
+			slog.Any("aaa", "bbb"),
+			slog.Any("ccc", "ddd"),
+		),
+	)
+	slog.Info(
+		"logger",
+		slog.Group("group",
+			slog.Any("aaa", "bbb"),
+			slog.Any("ccc", "ddd"),
+		),
+	)
 }
